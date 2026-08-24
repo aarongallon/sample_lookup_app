@@ -13,7 +13,11 @@ from app.models import SampleTrack
 
 
 async def seed() -> None:
-    await init_db(settings.database_url)
+    url = settings.database_url
+    scheme = url.split("://")[0] if "://" in url else "UNKNOWN"
+    has_at = "@" in url
+    print(f"  DB URL scheme={scheme}, has_credentials={has_at}, length={len(url)}")
+    await init_db(url)
 
     data_path = Path(__file__).resolve().parent.parent / "data" / "samples.json"
     with data_path.open(encoding="utf-8") as f:

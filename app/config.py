@@ -14,9 +14,19 @@ class Settings(BaseSettings):
     def _fix_postgres_scheme(self) -> "Settings":
         url = self.database_url
         if url.startswith("postgres://"):
-            self.database_url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-        elif url.startswith("postgresql://"):
-            self.database_url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            url = "postgresql+asyncpg://" + url[len("postgres://"):]
+        elif url.startswith("postgresql://") and "+asyncpg" not in url:
+            url = "postgresql+asyncpg://" + url[len("postgresql://"):]
+
+        if "asyncpg" in url and "@" in url:
+            from urllib.parse import urlparse, urlunparse, quote
+            parsed = urlparse(url)
+            if parsed.password:
+                safe_pw = quote(parsed.password, safe="")
+                url = urlunparse(parsed._replace(
+                    netloc=f"{parsed.username}:{safe_pw}@{parsed.hostname}:{parsed.port}"
+                ))
+        self.database_url = url
         return self
 
 
