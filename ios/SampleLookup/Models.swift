@@ -34,5 +34,5 @@ struct NowPlayingTrack: Equatable {
 
 enum APIConfig {
     /// Change this to your Railway URL after deploying
-    static let defaultBaseURL = "http://127.0.0.1:8000"
+    static let defaultBaseURL = "https://samplelookupapp-production.up.railway.app"
 }
