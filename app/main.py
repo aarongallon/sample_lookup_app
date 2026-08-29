@@ -49,8 +49,12 @@ app.add_middleware(
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health() -> dict:
+    return {
+        "status": "ok",
+        "genius_enabled": genius is not None,
+        "whosampled_enabled": settings.enable_whosampled,
+    }
 
 
 @app.get("/samples", response_model=SamplesResponse)
