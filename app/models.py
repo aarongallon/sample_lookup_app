@@ -18,5 +18,5 @@ class SamplesResponse(BaseModel):
     query: dict[str, str]
     matched_track: dict[str, str] | None = None
     samples: list[SampleTrack]
-    source: Literal["local", "cache", "whosampled", "none"]
+    source: Literal["local", "cache", "genius", "whosampled", "none"]
     message: str | None = None

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from app.database import DatabaseStore
+from app.genius import GeniusClient
 from app.models import SampleTrack, SamplesResponse
 from app.normalize import cache_key
 from app.redis_cache import NullCache, RedisCache
@@ -16,12 +17,16 @@ class SampleService:
         self,
         store: DatabaseStore,
         cache: RedisCache | NullCache,
+        genius: GeniusClient | None = None,
         whosampled: WhoSampledClient | None = None,
-        enable_whosampled: bool = True,
+        enable_genius: bool = True,
+        enable_whosampled: bool = False,
     ) -> None:
         self.store = store
         self.cache = cache
+        self.genius = genius
         self.whosampled = whosampled or WhoSampledClient()
+        self.enable_genius = enable_genius and genius is not None
         self.enable_whosampled = enable_whosampled
 
     async def get_samples(self, artist: str, title: str) -> SamplesResponse:
@@ -37,7 +42,7 @@ class SampleService:
             cached.query = query
             return cached
 
-        # 2. Postgres (curated + previously scraped)
+        # 2. Postgres (curated + previously fetched)
         local = await self.store.lookup(artist, title)
         if local is not None:
             matched, samples = local
@@ -50,7 +55,29 @@ class SampleService:
             await self.cache.set(key, response)
             return response
 
-        # 3. WhoSampled scrape
+        # 3. Genius API (primary remote source)
+        if self.enable_genius:
+            try:
+                remote = await self.genius.lookup(artist, title)
+            except Exception:
+                logger.exception("Genius lookup failed for %r / %r", artist, title)
+                remote = None
+
+            if remote is not None:
+                matched, samples = remote
+                response = SamplesResponse(
+                    query=query,
+                    matched_track=matched,
+                    samples=samples,
+                    source="genius",
+                    message=None if samples else "Track found, but no listed samples.",
+                )
+                await self.cache.set(key, response)
+                if samples:
+                    await self._persist(matched, artist, title, samples, "genius")
+                return response
+
+        # 4. WhoSampled fallback (local dev only)
         if self.enable_whosampled:
             try:
                 remote = await self.whosampled.lookup(artist, title)
@@ -68,17 +95,8 @@ class SampleService:
                     message=None if samples else "Track found, but no listed samples.",
                 )
                 await self.cache.set(key, response)
-                # Persist to Postgres so future lookups skip scraping
                 if samples:
-                    try:
-                        await self.store.upsert(
-                            artist=matched.get("artist", artist),
-                            title=matched.get("title", title),
-                            samples=samples,
-                            source="whosampled",
-                        )
-                    except Exception:
-                        logger.warning("Failed to persist WhoSampled result to DB", exc_info=True)
+                    await self._persist(matched, artist, title, samples, "whosampled")
                 return response
 
         return SamplesResponse(
@@ -88,3 +106,21 @@ class SampleService:
             source="none",
             message="No sample data found for this track.",
         )
+
+    async def _persist(
+        self,
+        matched: dict[str, str],
+        artist: str,
+        title: str,
+        samples: list[SampleTrack],
+        source: str,
+    ) -> None:
+        try:
+            await self.store.upsert(
+                artist=matched.get("artist", artist),
+                title=matched.get("title", title),
+                samples=samples,
+                source=source,
+            )
+        except Exception:
+            logger.warning("Failed to persist %s result to DB", source, exc_info=True)

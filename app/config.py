@@ -5,7 +5,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./data/samples.db"
     redis_url: str = ""
-    enable_whosampled: bool = True
+    genius_token: str = ""
+    enable_genius: bool = True
+    enable_whosampled: bool = False
     cache_ttl_seconds: int = 60 * 60 * 24
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}

@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import DatabaseStore, close_db, init_db
+from app.genius import GeniusClient
 from app.models import SamplesResponse
 from app.redis_cache import build_cache
 from app.service import SampleService
@@ -12,10 +13,13 @@ from app.whosampled import WhoSampledClient
 
 cache = build_cache(settings.redis_url, settings.cache_ttl_seconds)
 store = DatabaseStore()
+genius = GeniusClient(settings.genius_token) if settings.genius_token else None
 service = SampleService(
     store=store,
     cache=cache,
+    genius=genius,
     whosampled=WhoSampledClient(),
+    enable_genius=settings.enable_genius,
     enable_whosampled=settings.enable_whosampled,
 )
 
@@ -31,7 +35,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Sample Lookup API",
     description="Given a song title and artist, return the track(s) sampled in it.",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
