@@ -9,6 +9,11 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     nowPlayingSection
                     inputSection
+
+                    if !viewModel.history.isEmpty && viewModel.samples.isEmpty && viewModel.errorText == nil {
+                        historySection
+                    }
+
                     resultsSection
                 }
                 .padding()
@@ -16,6 +21,9 @@ struct ContentView: View {
             .navigationTitle("Sample Lookup")
             .onAppear {
                 viewModel.refreshNowPlaying()
+            }
+            .onOpenURL { url in
+                viewModel.handleDeepLink(url)
             }
         }
     }
@@ -67,6 +75,36 @@ struct ContentView: View {
         }
     }
 
+    private var historySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Divider()
+            Text("Recent")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            ForEach(viewModel.history, id: \.self) { entry in
+                Button {
+                    let parts = entry.components(separatedBy: " — ")
+                    if parts.count == 2 {
+                        viewModel.artist = parts[1]
+                        viewModel.title = parts[0]
+                        viewModel.findSamples()
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(entry)
+                            .font(.subheadline)
+                            .lineLimit(1)
+                        Spacer()
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
     @ViewBuilder
     private var resultsSection: some View {
         if let errorText = viewModel.errorText {
@@ -80,7 +118,7 @@ struct ContentView: View {
             Text(matched)
                 .font(.headline)
             if let source = viewModel.source {
-                Text("Source: \(source)")
+                Text(sourceLabel(source))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -103,6 +141,16 @@ struct ContentView: View {
             }
         }
     }
+
+    private func sourceLabel(_ raw: String) -> String {
+        switch raw {
+        case "genius": return "via Genius"
+        case "local": return "via local database"
+        case "cache": return "via cache"
+        case "whosampled": return "via WhoSampled"
+        default: return raw
+        }
+    }
 }
 
 struct SampleRow: View {
@@ -110,8 +158,19 @@ struct SampleRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(sample.title)
-                .font(.body.weight(.medium))
+            if let urlString = sample.url, let url = URL(string: urlString) {
+                Link(destination: url) {
+                    HStack(spacing: 4) {
+                        Text(sample.title)
+                            .font(.body.weight(.medium))
+                        Image(systemName: "arrow.up.right.square")
+                            .font(.caption)
+                    }
+                }
+            } else {
+                Text(sample.title)
+                    .font(.body.weight(.medium))
+            }
             HStack(spacing: 6) {
                 Text(sample.artist)
                 if let year = sample.year {

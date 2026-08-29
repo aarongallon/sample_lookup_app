@@ -12,8 +12,15 @@ final class SampleLookupViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorText: String?
     @Published var nowPlayingStatus: String = "Open this panel, then tap Find samples when you want a lookup."
+    @Published var history: [String] = []
 
+    private static let historyKey = "lookup_history"
+    private static let maxHistory = 10
     private let client = SampleAPIClient()
+
+    init() {
+        history = UserDefaults.standard.stringArray(forKey: Self.historyKey) ?? []
+    }
 
     func refreshNowPlaying() {
         if let track = NowPlayingMonitor.currentTrack() {
@@ -52,8 +59,19 @@ final class SampleLookupViewModel: ObservableObject {
             if response.samples.isEmpty, response.message == nil {
                 message = "No samples listed for this track."
             }
+            addToHistory(title: title, artist: artist)
         } catch {
             errorText = error.localizedDescription
         }
+    }
+
+    private func addToHistory(title: String, artist: String) {
+        let entry = "\(title) — \(artist)"
+        history.removeAll { $0 == entry }
+        history.insert(entry, at: 0)
+        if history.count > Self.maxHistory {
+            history = Array(history.prefix(Self.maxHistory))
+        }
+        UserDefaults.standard.set(history, forKey: Self.historyKey)
     }
 }

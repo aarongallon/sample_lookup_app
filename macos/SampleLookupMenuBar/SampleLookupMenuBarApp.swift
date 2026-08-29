@@ -8,12 +8,12 @@ struct SampleLookupMenuBarApp: App {
         // Settings is unused in MVP but required so SwiftUI App has a Scene.
         Settings {
             Form {
-                Text("Sample Lookup talks to http://127.0.0.1:8000")
+                Text("Sample Lookup — API: \(APIConfig.defaultBaseURL)")
                 Text("Menu bar icon · ⌥⌘S toggles panel · Find samples is on demand")
                     .foregroundStyle(.secondary)
             }
             .padding()
-            .frame(width: 360)
+            .frame(width: 420)
         }
     }
 }

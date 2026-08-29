@@ -40,6 +40,19 @@ struct NowPlayingProvider: TimelineProvider {
 struct NowPlayingWidgetView: View {
     let entry: NowPlayingEntry
 
+    private var deepLinkURL: URL? {
+        guard entry.title != "Not Playing", !entry.title.isEmpty else { return nil }
+        var components = URLComponents()
+        components.scheme = "samplelookup"
+        components.host = "lookup"
+        components.queryItems = [
+            URLQueryItem(name: "artist", value: entry.artist),
+            URLQueryItem(name: "title", value: entry.title),
+            URLQueryItem(name: "auto", value: "1"),
+        ]
+        return components.url
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
@@ -65,6 +78,7 @@ struct NowPlayingWidgetView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(4)
+        .widgetURL(deepLinkURL)
     }
 }
 

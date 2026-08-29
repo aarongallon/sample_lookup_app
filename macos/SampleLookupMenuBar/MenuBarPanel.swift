@@ -37,11 +37,24 @@ struct MenuBarPanel: View {
                 .padding(4)
             }
 
+            if !viewModel.history.isEmpty && viewModel.samples.isEmpty && viewModel.errorText == nil {
+                historySection
+            }
+
             results
 
-            Text("⌥⌘S toggles this panel · lookups only when you ask")
+            HStack {
+                Text("⌥⌘S toggles this panel · lookups only when you ask")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                Spacer()
+                Button("Quit") {
+                    NSApplication.shared.terminate(nil)
+                }
                 .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+            }
         }
         .padding(14)
         .frame(width: 340)
@@ -65,6 +78,31 @@ struct MenuBarPanel: View {
     }
 
     @ViewBuilder
+    private var historySection: some View {
+        Divider()
+        Text("Recent")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+        ForEach(viewModel.history, id: \.self) { entry in
+            Button {
+                let parts = entry.components(separatedBy: " — ")
+                if parts.count == 2 {
+                    viewModel.artist = parts[1]
+                    viewModel.title = parts[0]
+                    viewModel.findSamples()
+                }
+            } label: {
+                Text(entry)
+                    .font(.caption)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.primary)
+        }
+    }
+
+    @ViewBuilder
     private var results: some View {
         if let errorText = viewModel.errorText {
             Text(errorText)
@@ -76,7 +114,7 @@ struct MenuBarPanel: View {
             Text(matched)
                 .font(.subheadline.weight(.semibold))
             if let source = viewModel.source {
-                Text("Source: \(source)")
+                Text(sourceLabel(source))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -93,23 +131,52 @@ struct MenuBarPanel: View {
             Text("Samples")
                 .font(.subheadline.weight(.semibold))
             ForEach(viewModel.samples) { sample in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(sample.title)
-                        .font(.body.weight(.medium))
-                    HStack(spacing: 6) {
-                        Text(sample.artist)
-                        if let year = sample.year {
-                            Text("· \(year)")
-                        }
-                        if let type = sample.type {
-                            Text("· \(type)")
-                        }
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 2)
+                SampleRowMac(sample: sample)
             }
         }
+    }
+
+    private func sourceLabel(_ raw: String) -> String {
+        switch raw {
+        case "genius": return "via Genius"
+        case "local": return "via local database"
+        case "cache": return "via cache"
+        case "whosampled": return "via WhoSampled"
+        default: return raw
+        }
+    }
+}
+
+struct SampleRowMac: View {
+    let sample: SampleTrack
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if let urlString = sample.url, let url = URL(string: urlString) {
+                Link(destination: url) {
+                    HStack(spacing: 4) {
+                        Text(sample.title)
+                            .font(.body.weight(.medium))
+                        Image(systemName: "arrow.up.right.square")
+                            .font(.caption)
+                    }
+                }
+            } else {
+                Text(sample.title)
+                    .font(.body.weight(.medium))
+            }
+            HStack(spacing: 6) {
+                Text(sample.artist)
+                if let year = sample.year {
+                    Text("· \(year)")
+                }
+                if let type = sample.type {
+                    Text("· \(type)")
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 2)
     }
 }
